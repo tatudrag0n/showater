@@ -52,6 +52,7 @@
   .pressbox label{font-size:13px; font-weight:800; color:#46677f; display:flex; justify-content:space-between}
   .pressbox label b{color:var(--accent2); font-size:16px}
   input[type=range]{width:100%; height:34px; accent-color:var(--accent); cursor:pointer}
+  input[type=range]:disabled{opacity:.35; cursor:not-allowed}
   .btn{
     border:none; border-radius:12px; font-weight:900; cursor:pointer; color:#fff;
     padding:12px 18px; font-size:17px; user-select:none; -webkit-user-select:none; touch-action:none;
@@ -116,7 +117,7 @@
     </div>
     <button class="btn" id="judgeBtn">✔ 判定する</button>
   </div>
-  <div class="hint">スライダーで水圧を決めると自動で水が出て、止められない。コップの80%ライン以上ためればクリア。キーボード: ←→で水圧 / Enterで判定</div>
+  <div class="hint">水圧を決めたら自動で水が出る。出たら水圧も変えられないし止められない。コップの80%ライン以上ためればクリア。キーボード: ←→で水圧 / Enterで判定</div>
 </div>
 
 <div class="overlay" id="titleOv">
@@ -125,7 +126,7 @@
     <p class="sub">シャワーの水圧を調整して、コップに水を満たそう</p>
     <div class="howto">
       🚿 お風呂のシャワーでコップに水をためるゲーム。水圧スライダーで勢いを変えると、水の届く位置が変わるよ。<br>
-      💧 スライダーで水圧を決めると、その瞬間から自動で水が出る。決める前は水は出ないよ。流れている間も水圧は変えられるけど、<b>一度流れ始めたら止められない</b>。水タンクが空になるまで流れ続けるから、水圧決めは慎重に。<br>
+      💧 スライダーで水圧を決めると、その瞬間から自動で水が出る。決める前は水は出ないよ。<b>一度決めたら、水圧は変えられないし、水も止められない</b>。水タンクが空になるまで流れ続けるから、水圧決めは慎重に。成功・失敗したら次の挑戦でまた決め直せる。<br>
       🥛 コップの<b>80%ライン以上</b>ためればステージクリア。窓からの風や風呂椅子、動くコップなど全30ステージ。
     </div>
     <div class="grid" id="grid"></div>
@@ -477,7 +478,7 @@ function frame(ts){
 
 /* ================= 画面遷移と入力 ================= */
 function startStage(i){
-  cur = i; st = stageState(i); decided = false; setFlow(false);
+  cur = i; st = stageState(i); decided = false; els.press.disabled = false; setFlow(false);
   els.stage.textContent = 'ステージ ' + (i + 1) + '：' + STAGES[i].name;
   $('titleOv').classList.add('hidden'); $('resOv').classList.add('hidden');
   els.fill.textContent = '0%'; els.tank.style.width = '100%';
@@ -494,15 +495,17 @@ function buildGrid(){
 }
 function overlayOpen(){ return !$('titleOv').classList.contains('hidden') || !$('resOv').classList.contains('hidden'); }
 function setPressure(v){
+  if (decided) return;
   pressure = Math.max(0, Math.min(100, Math.round(v)));
   els.press.value = pressure; els.pressVal.textContent = pressure;
 }
-els.press.addEventListener('input', e => { pressure = +e.target.value; els.pressVal.textContent = pressure; });
+els.press.addEventListener('input', e => { if (decided) return; pressure = +e.target.value; els.pressVal.textContent = pressure; });
 els.press.addEventListener('change', decide);
 function setFlow(on){ pouring = on; }
 function decide(){
   if (decided) return;
   decided = true;
+  els.press.disabled = true;
   audioInit(); if (AC && AC.state === 'suspended') AC.resume();
   setFlow(true);
 }
