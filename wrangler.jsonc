@@ -1,0 +1,13 @@
+{
+  // Cloudflare Workers (static assets) 用の設定。
+  // リポジトリ直下の index.html をそのまま配信する。
+  "name": "showater",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "."
+  },
+  "routes": [
+    { "pattern": "showater.mct-official.com", "custom_domain": true }
+  ]
+}
