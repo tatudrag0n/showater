@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Showater | シャワーの水圧でコップを満たすゲーム</title>
+<meta name="description" content="シャワーの水圧を調整して、コップに水を80%以上ためればクリア。全30ステージのブラウザゲーム。">
+<style>
+  :root{
+    --ink:#12314a; --accent:#1e9be0; --accent2:#0b6cb4; --ok:#1db954; --bad:#e0483e;
+    --panel:#ffffff; --bg:#dff3fb;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+    background:linear-gradient(180deg,#bfe8f7 0%,#e6f8ff 55%,#fdfefe 100%);
+    color:var(--ink); display:flex; flex-direction:column; align-items:center;
+    min-height:100dvh; overflow-x:hidden;
+  }
+  #app{width:min(98vw,980px); display:flex; flex-direction:column; gap:8px; padding:10px 4px 16px}
+  .topbar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:var(--panel); border-radius:14px; padding:8px 12px;
+    box-shadow:0 2px 10px rgba(18,49,74,.12);
+  }
+  .logo{font-weight:900; font-size:22px; letter-spacing:.5px; color:var(--accent2)}
+  .logo small{display:block; font-size:10px; font-weight:700; color:#6b8aa0; letter-spacing:0}
+  #stageLabel{font-weight:800; font-size:15px}
+  .hud{margin-left:auto; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .hud .fillbox{font-size:14px; font-weight:700; color:#46677f}
+  .hud .fillbox b{font-size:24px; color:var(--accent2); min-width:74px; display:inline-block; text-align:right}
+  .tankwrap{display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#46677f}
+  .tankbar{width:110px; height:12px; border-radius:6px; background:#d7ecf7; overflow:hidden; border:1px solid #b9dcee}
+  #tankFill{height:100%; width:100%; background:linear-gradient(90deg,#37b6f0,#0b6cb4); transition:width .1s linear}
+  .iconbtn{
+    border:2px solid #cfe7f3; background:#f2fbff; color:var(--ink); border-radius:10px;
+    font-size:16px; padding:5px 10px; cursor:pointer; font-weight:700;
+  }
+  .iconbtn:active{transform:scale(.96)}
+  .stage-wrap{
+    position:relative; border-radius:16px; overflow:hidden;
+    box-shadow:0 6px 24px rgba(18,49,74,.18); background:#a8dcf2;
+  }
+  canvas{display:block; width:100%; height:auto; touch-action:none}
+  .controls{
+    display:flex; gap:10px; align-items:stretch; flex-wrap:wrap;
+    background:var(--panel); border-radius:14px; padding:10px 12px;
+    box-shadow:0 2px 10px rgba(18,49,74,.12);
+  }
+  .pressbox{flex:1 1 300px; display:flex; flex-direction:column; gap:4px; justify-content:center}
+  .pressbox label{font-size:13px; font-weight:800; color:#46677f; display:flex; justify-content:space-between}
+  .pressbox label b{color:var(--accent2); font-size:16px}
+  input[type=range]{width:100%; height:34px; accent-color:var(--accent); cursor:pointer}
+  .btn{
+    border:none; border-radius:12px; font-weight:900; cursor:pointer; color:#fff;
+    padding:12px 18px; font-size:17px; user-select:none; -webkit-user-select:none; touch-action:none;
+  }
+  .btn:active{transform:scale(.97)}
+  #pourBtn{flex:0 1 210px; background:linear-gradient(180deg,#37b6f0,#0b6cb4); font-size:19px; box-shadow:0 4px 0 #084e82}
+  #pourBtn.on{filter:brightness(1.2); box-shadow:0 1px 0 #084e82; transform:translateY(3px)}
+  #judgeBtn{flex:0 1 130px; background:linear-gradient(180deg,#ffb03a,#f08c0a); box-shadow:0 4px 0 #b96a00; color:#fff}
+  .hint{font-size:12px; color:#6b8aa0; text-align:center}
+  /* overlays */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,40,66,.55); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center; z-index:20; padding:14px;
+  }
+  .overlay.hidden{display:none}
+  .card{
+    background:#fff; border-radius:18px; padding:22px; width:min(94vw,640px);
+    max-height:92dvh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.3); text-align:center;
+  }
+  .card h1{font-size:40px; color:var(--accent2); letter-spacing:1px}
+  .card h1 span{color:#37b6f0}
+  .card .sub{font-weight:700; color:#46677f; margin:4px 0 10px}
+  .card .howto{font-size:13px; color:#46677f; line-height:1.7; background:#f2fbff; border-radius:10px; padding:10px 12px; text-align:left}
+  .grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:14px}
+  .stagebtn{
+    border:2px solid #cfe7f3; background:#f2fbff; border-radius:12px; padding:8px 2px 6px;
+    font-weight:900; font-size:16px; color:var(--ink); cursor:pointer; line-height:1.15;
+  }
+  .stagebtn .stars{display:block; font-size:10px; color:#f5a623; min-height:13px; letter-spacing:1px}
+  .stagebtn:disabled{opacity:.38; cursor:not-allowed}
+  .stagebtn:not(:disabled):active{transform:scale(.95)}
+  #resTitle{font-size:30px; font-weight:900}
+  #resStars{font-size:40px; color:#f5a623; letter-spacing:6px; margin:6px 0}
+  #resText{font-weight:700; color:#46677f; line-height:1.7}
+  .resbtns{display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap}
+  .resbtns .btn{flex:0 1 auto}
+  .btn.next{background:linear-gradient(180deg,#2fd06c,#129a46); box-shadow:0 4px 0 #0b6e32}
+  .btn.retry{background:linear-gradient(180deg,#37b6f0,#0b6cb4); box-shadow:0 4px 0 #084e82}
+  .btn.ghost{background:#eef6fb; color:var(--ink); box-shadow:0 4px 0 #c8dde9}
+  @media (max-width:560px){
+    .grid{grid-template-columns:repeat(5,1fr)}
+    .card h1{font-size:32px}
+    #pourBtn{flex:1 1 150px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="logo">Showater<small>シャワー × ウォーター</small></div>
+    <div id="stageLabel">ステージ 1</div>
+    <div class="hud">
+      <div class="fillbox">たまった量 <b id="fillPct">0%</b></div>
+      <div class="tankwrap">水タンク<div class="tankbar"><div id="tankFill"></div></div></div>
+      <button class="iconbtn" id="selectBtn" title="ステージ選択">📋</button>
+      <button class="iconbtn" id="retryBtn" title="やり直し">↺</button>
+      <button class="iconbtn" id="soundBtn" title="サウンド ON/OFF">🔊</button>
+    </div>
+  </div>
+  <div class="stage-wrap"><canvas id="cv" width="960" height="540"></canvas></div>
+  <div class="controls">
+    <div class="pressbox">
+      <label>水圧 <b><span id="pressVal">40</span>%</b></label>
+      <input type="range" id="pressRange" min="0" max="100" value="40">
+    </div>
+    <button class="btn" id="pourBtn">💧 長押しで注ぐ</button>
+    <button class="btn" id="judgeBtn">✔ 判定する</button>
+  </div>
+  <div class="hint">水圧を合わせて「長押しで注ぐ」。コップの80%ライン以上ためればクリア。キーボード: ←→で水圧 / スペース長押しで注ぐ / Enterで判定</div>
+</div>
+
+<div class="overlay" id="titleOv">
+  <div class="card">
+    <h1>Sho<span>water</span></h1>
+    <p class="sub">シャワーの水圧を調整して、コップに水を満たそう</p>
+    <div class="howto">
+      🚿 水圧スライダーでシャワーの勢いを変えると、水の届く位置が変わるよ。<br>
+      💧 「長押しで注ぐ」を押している間だけ水が出る。水タンクには限りがあるから無駄撃ち注意。<br>
+      🥛 コップの<b>80%ライン以上</b>ためればステージクリア。風や壁、動くコップなど全30ステージ。
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="resOv">
+  <div class="card">
+    <div id="resTitle">クリア！</div>
+    <div id="resStars">★★★</div>
+    <p id="resText"></p>
+    <div class="resbtns">
+      <button class="btn next" id="nextBtn">次のステージへ</button>
+      <button class="btn retry" id="resRetryBtn">もう一度</button>
+      <button class="btn ghost" id="resSelectBtn">ステージ選択</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= 基本定数 ================= */
+const W = 960, H = 540;
+const GRAV = 900;                 // 重力 px/s^2
+const HEAD = { x: 110, y: 84 };   // シャワーヘッド位置
+const ANG = 15 * Math.PI / 180;   // ノズルの角度（水平から下向き）
+const COUNTER_Y = 470;            // カウンター上面
+const CUP_H = 74;                 // コップの高さ
+const RIM_Y = COUNTER_Y - CUP_H;  // コップの口の高さ
+const EMIT_RATE = 210;            // 1秒あたりの水粒数
+const CLEAR_PCT = 80;
+
+function speedFor(p){ return 150 + (p / 100) * 850; }
+
+/* ================= ステージ定義 =================
+   cupX: コップ中心x / cupW: コップの幅 / wind: 風（+で右向き）
+   gusty: 突風（風が強弱する） / wall: カウンター上の壁（最低水圧を強制）
+   ceiling: 天井板（最高水圧を制限） / moveAmp,moveSpd: コップの横移動
+   leak: 1秒あたりの漏れ量 / tankMul: 水タンク量（コップ容量×倍率） */
+const STAGES = [
+  { name:"はじめの一杯",     cupX:400, cupW:112, tankMul:1.7,  guide:true },
+  { name:"ちょっと右へ",     cupX:480, cupW:108, tankMul:1.6,  guide:true },
+  { name:"遠くのコップ",     cupX:580, cupW:104, tankMul:1.55, guide:true },
+  { name:"近場で確実に",     cupX:310, cupW:100, tankMul:1.5 },
+  { name:"画面の端まで",     cupX:655, cupW:96,  tankMul:1.45 },
+  { name:"そよ風",           cupX:460, cupW:100, wind:80,   tankMul:1.5 },
+  { name:"追い風に乗せて",   cupX:560, cupW:100, wind:130,  tankMul:1.5 },
+  { name:"向かい風",         cupX:500, cupW:96,  wind:-120, tankMul:1.5 },
+  { name:"強い横風",         cupX:420, cupW:96,  wind:-180, tankMul:1.45 },
+  { name:"風のいたずら",     cupX:600, cupW:92,  wind:210,  tankMul:1.4 },
+  { name:"壁を越えろ",       cupX:560, cupW:100, wall:{x:350,y:238,w:18}, tankMul:1.5 },
+  { name:"もっと高い壁",     cupX:595, cupW:92,  wall:{x:360,y:224,w:18}, tankMul:1.45 },
+  { name:"天井に注意",       cupX:620, cupW:92,  ceiling:{x:520,y:292,w:210}, tankMul:1.4 },
+  { name:"狭いコップ",       cupX:480, cupW:62,  tankMul:1.4 },
+  { name:"ちびコップ遠く",   cupX:590, cupW:56,  tankMul:1.35 },
+  { name:"ゆらゆらコップ",   cupX:470, cupW:96,  moveAmp:55,  moveSpd:0.9,  tankMul:1.55 },
+  { name:"大きくゆらゆら",   cupX:500, cupW:92,  moveAmp:105, moveSpd:1.15, tankMul:1.55 },
+  { name:"ゆらゆらと風",     cupX:520, cupW:90,  wind:110, moveAmp:75, moveSpd:1.0, tankMul:1.5 },
+  { name:"穴あきコップ",     cupX:470, cupW:100, leak:24, tankMul:1.7 },
+  { name:"漏れまくり",       cupX:550, cupW:96,  leak:46, tankMul:1.85 },
+  { name:"壁と向かい風",     cupX:580, cupW:90,  wind:-120, wall:{x:340,y:220,w:18}, tankMul:1.45 },
+  { name:"天井と追い風",     cupX:615, cupW:88,  wind:150, ceiling:{x:500,y:272,w:220}, tankMul:1.5 },
+  { name:"高速ゆらゆら",     cupX:500, cupW:88,  moveAmp:125, moveSpd:1.6, tankMul:1.5 },
+  { name:"極狭コップ",       cupX:540, cupW:46,  tankMul:1.3 },
+  { name:"強風と穴あき",     cupX:580, cupW:90,  wind:190, leak:34, tankMul:1.65 },
+  { name:"全部のせ",         cupX:560, cupW:86,  wind:-140, wall:{x:330,y:230,w:18}, moveAmp:65, moveSpd:1.05, tankMul:1.55 },
+  { name:"水は大切に",       cupX:500, cupW:92,  tankMul:1.12 },
+  { name:"精密射撃",         cupX:615, cupW:56,  tankMul:1.45 },
+  { name:"突風",             cupX:560, cupW:64,  wind:200, gusty:true, tankMul:1.4 },
+  { name:"ラスト一杯",       cupX:570, cupW:78,  wind:-170, leak:22, moveAmp:80, moveSpd:1.25, ceiling:{x:480,y:282,w:200}, tankMul:1.7 },
+];
+</script>
+<script>
+/* ================= 状態と進行 ================= */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+const els = { fill:$('fillPct'), tank:$('tankFill'), stage:$('stageLabel'), press:$('pressRange'), pressVal:$('pressVal'), pour:$('pourBtn') };
+
+let save = { stars:new Array(30).fill(0), unlocked:1 };
+try { const s = JSON.parse(localStorage.getItem('showater_v1')); if (s && Array.isArray(s.stars)) save = s; } catch(e){}
+function persist(){ try { localStorage.setItem('showater_v1', JSON.stringify(save)); } catch(e){} }
+
+let cur = 0, st = null, pressure = 40, pouring = false, lastTs = 0;
+
+function stageState(i){
+  const d = STAGES[i];
+  const capacity = Math.round(d.cupW * 4.2);
+  const tankTotal = Math.round(capacity * d.tankMul);
+  return { def:d, t:0, captured:0, capacity, tank:tankTotal, tankTotal, particles:[], splashes:[], emitAcc:0, done:false };
+}
+function cupCX(s){ const d = s.def; return d.cupX + (d.moveAmp ? Math.sin(s.t * d.moveSpd) * d.moveAmp : 0); }
+function windNow(s){ const d = s.def; if (!d.wind) return 0; return d.gusty ? d.wind * (0.55 + 0.45 * Math.sin(s.t * 2.1 + 1.3)) : d.wind; }
+function fillPct(s){ return Math.min(100, s.captured / s.capacity * 100); }
+
+/* ================= サウンド ================= */
+let AC = null, noiseGain = null, noiseFilter = null;
+let muted = false;
+try { muted = localStorage.getItem('showater_mute') === '1'; } catch(e){}
+function audioInit(){
+  if (AC) return;
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    const len = Math.floor(AC.sampleRate * 1.2);
+    const buf = AC.createBuffer(1, len, AC.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+    const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+    noiseFilter = AC.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 900; noiseFilter.Q.value = 0.6;
+    noiseGain = AC.createGain(); noiseGain.gain.value = 0;
+    src.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(AC.destination);
+    src.start();
+  } catch(e){ AC = null; }
+}
+function tone(freq, delay, dur, type, vol){
+  if (!AC || muted) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  const s = AC.currentTime + delay;
+  g.gain.setValueAtTime(0.0001, s);
+  g.gain.linearRampToValueAtTime(vol || 0.15, s + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, s + dur);
+  o.connect(g); g.connect(AC.destination); o.start(s); o.stop(s + dur + 0.05);
+}
+function jingle(ok){
+  if (ok){ tone(523, 0, .18); tone(659, .1, .18); tone(784, .2, .32); }
+  else { tone(220, 0, .25, 'triangle', .12); tone(174, .16, .35, 'triangle', .12); }
+}
+function setPourSound(on){
+  if (!AC || !noiseGain) return;
+  const t = AC.currentTime;
+  noiseGain.gain.cancelScheduledValues(t);
+  noiseGain.gain.linearRampToValueAtTime(on && !muted ? 0.10 : 0, t + 0.08);
+}
+
+/* ================= 物理と進行 ================= */
+function addSplash(x, y, n){
+  for (let i = 0; i < n; i++) st.splashes.push({ x:x, y:y, vx:(Math.random()*2-1)*70, vy:-Math.random()*90-20, life:.35 });
+}
+function update(dt){
+  const s = st; if (!s) return;
+  s.t += dt;
+  const d = s.def;
+  if (!s.done && d.leak) s.captured = Math.max(0, s.captured - d.leak * dt);
+  if (pouring && !s.done && s.tank > 0){
+    s.emitAcc += EMIT_RATE * dt;
+    const v0 = speedFor(pressure);
+    while (s.emitAcc >= 1 && s.tank > 0){
+      s.emitAcc -= 1; s.tank -= 1;
+      const spread = (0.8 + pressure * 0.035) * Math.PI / 180;
+      const a = ANG + (Math.random()*2-1) * spread;
+      const v = v0 * (1 + (Math.random()*2-1) * 0.025);
+      s.particles.push({ x:HEAD.x + 16, y:HEAD.y + 12, vx:Math.cos(a)*v, vy:Math.sin(a)*v });
+    }
+  } else s.emitAcc = 0;
+
+  const wnd = windNow(s), cx = cupCX(s);
+  const innerHalf = d.cupW/2 - 6, outerHalf = d.cupW/2 + 3;
+  const alive = [];
+  for (const p of s.particles){
+    const prevY = p.y;
+    p.vy += GRAV * dt; p.vx += wnd * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    let dead = false, got = false;
+    if (d.wall && p.x > d.wall.x && p.x < d.wall.x + d.wall.w && p.y > d.wall.y && p.y < COUNTER_Y) dead = true;
+    if (!dead && d.ceiling && p.x > d.ceiling.x && p.x < d.ceiling.x + d.ceiling.w && p.y > d.ceiling.y && p.y < d.ceiling.y + 14) dead = true;
+    if (!dead && p.vy > 0 && prevY < RIM_Y + 2 && p.y >= RIM_Y + 2 && Math.abs(p.x - cx) < innerHalf) got = true;
+    if (!dead && !got && p.y > RIM_Y && p.y < COUNTER_Y - 4 && Math.abs(p.x - cx) < innerHalf) got = true;
+    if (!dead && !got && p.y >= RIM_Y && p.y < COUNTER_Y && Math.abs(p.x - cx) >= innerHalf && Math.abs(p.x - cx) < outerHalf) dead = true;
+    if (!dead && !got && p.y >= COUNTER_Y) dead = true;
+    if (p.x > W + 30 || p.x < -30 || p.y > H + 30) dead = true;
+    if (got){ s.captured = Math.min(s.capacity, s.captured + 1); if (Math.random() < .25) addSplash(p.x, RIM_Y + 8, 1); }
+    else if (dead){ if (Math.random() < .3) addSplash(p.x, Math.min(p.y, COUNTER_Y), 2); }
+    else alive.push(p);
+  }
+  s.particles = alive;
+  for (const sp of s.splashes){ sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 500 * dt; sp.life -= dt; }
+  s.splashes = s.splashes.filter(sp => sp.life > 0);
+
+  if (!s.done){
+    if (fillPct(s) >= 100) finish();
+    else if (s.tank <= 0 && s.particles.length === 0) finish();
+  }
+  els.fill.textContent = Math.floor(fillPct(s)) + '%';
+  els.tank.style.width = (s.tank / s.tankTotal * 100) + '%';
+  const aud = pouring && !s.done && s.tank > 0;
+  if (aud !== update._pa){ update._pa = aud; setPourSound(aud); }
+  if (aud && noiseFilter) noiseFilter.frequency.value = 700 + pressure * 14;
+}
+function finish(){
+  const s = st; if (!s || s.done) return;
+  s.done = true; pouring = false; els.pour.classList.remove('on'); setPourSound(false);
+  const pct = fillPct(s);
+  const stars = pct >= 98 ? 3 : pct >= 90 ? 2 : pct >= CLEAR_PCT ? 1 : 0;
+  const clear = stars >= 1;
+  if (clear){
+    if (stars > save.stars[cur]) save.stars[cur] = stars;
+    save.unlocked = Math.max(save.unlocked, Math.min(30, cur + 2));
+    persist();
+  }
+  audioInit(); jingle(clear);
+  $('resTitle').textContent = clear ? 'クリア！' : 'ざんねん…';
+  $('resTitle').style.color = clear ? '#129a46' : '#e0483e';
+  $('resStars').textContent = clear ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : '☆☆☆';
+  $('resText').innerHTML = 'たまった量は <b>' + Math.floor(pct) + '%</b> でした。' +
+    (clear ? (cur === 29 ? '<br>全30ステージ制覇！おつかれさま！' : '<br>次のステージが解放されたよ。')
+           : '<br>80%以上でクリア。水圧の合わせ方と、水の無駄づかいを見直してみて。');
+  $('nextBtn').style.display = (clear && cur < 29) ? '' : 'none';
+  setTimeout(() => $('resOv').classList.remove('hidden'), 650);
+}
+
+/* ================= 描画 ================= */
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawShower(active){
+  ctx.strokeStyle = '#9fb3c8'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(HEAD.x - 26, -4); ctx.lineTo(HEAD.x - 26, HEAD.y - 26); ctx.lineTo(HEAD.x - 2, HEAD.y - 6); ctx.stroke();
+  ctx.save();
+  ctx.translate(HEAD.x, HEAD.y); ctx.rotate(ANG);
+  if (active) ctx.translate(Math.random()*1.4 - .7, Math.random()*1.4 - .7);
+  ctx.fillStyle = '#7e97ad';
+  ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(20, -6); ctx.lineTo(20, 8); ctx.lineTo(-6, 10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#5d7488'; ctx.fillRect(18, -6, 5, 14);
+  ctx.fillStyle = '#33475a';
+  for (let i = -1; i <= 1; i++){ ctx.beginPath(); ctx.arc(24, i * 4.5, 1.4, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+function drawCup(cx, wdt, pct){
+  const topW = wdt, botW = wdt * .78;
+  const x0 = cx - topW/2, x1 = cx + topW/2, bx0 = cx - botW/2, bx1 = cx + botW/2;
+  const wh = (CUP_H - 14) * pct / 100;
+  if (wh > 0){
+    const wy = COUNTER_Y - 5 - wh;
+    const t = Math.max(0, Math.min(1, (wy - RIM_Y) / CUP_H));
+    const lw = topW + (botW - topW) * t;
+    ctx.fillStyle = 'rgba(56,158,240,.85)';
+    ctx.beginPath();
+    ctx.moveTo(cx - lw/2 + 3, wy);
+    for (let x = -lw/2 + 3; x <= lw/2 - 3; x += 8) ctx.lineTo(cx + x, wy + Math.sin(x * .5 + performance.now() * .004) * 1.3);
+    ctx.lineTo(bx1 - 3, COUNTER_Y - 5); ctx.lineTo(bx0 + 3, COUNTER_Y - 5); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  ctx.beginPath(); ctx.moveTo(x0, RIM_Y); ctx.lineTo(bx0, COUNTER_Y - 2); ctx.lineTo(bx1, COUNTER_Y - 2); ctx.lineTo(x1, RIM_Y); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(70,110,140,.9)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x0, RIM_Y); ctx.lineTo(bx0, COUNTER_Y - 2); ctx.lineTo(bx1, COUNTER_Y - 2); ctx.lineTo(x1, RIM_Y); ctx.stroke();
+  const ly = COUNTER_Y - 5 - (CUP_H - 14) * .8;
+  ctx.strokeStyle = 'rgba(224,72,62,.75)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(x0 - 6, ly); ctx.lineTo(x1 + 6, ly); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(224,72,62,.9)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('80%', x1 + 9, ly + 4);
+  ctx.fillStyle = '#0b6cb4'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(Math.floor(pct) + '%', cx, RIM_Y - 12);
+}
+function draw(){
+  const s = st; if (!s) return;
+  const d = s.def, cx = cupCX(s), pct = fillPct(s);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#cdeefb'); g.addColorStop(.75, '#eaf9ff'); g.addColorStop(.751, '#d9c7a7'); g.addColorStop(1, '#c9ae84');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 60){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, COUNTER_Y); ctx.stroke(); }
+  for (let y = 0; y <= COUNTER_Y; y += 60){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.fillStyle = '#b08d5f'; ctx.fillRect(0, COUNTER_Y, W, H - COUNTER_Y);
+  ctx.fillStyle = 'rgba(0,0,0,.08)'; ctx.fillRect(0, COUNTER_Y, W, 5);
+  if (d.guide && !pouring && !s.done){
+    ctx.fillStyle = 'rgba(11,108,180,.35)';
+    let gx = HEAD.x + 16, gy = HEAD.y + 12;
+    const v0 = speedFor(pressure);
+    let vx = Math.cos(ANG) * v0, vy = Math.sin(ANG) * v0;
+    const dt = 1/60, wnd = windNow(s);
+    for (let i = 0; i < 80; i++){
+      vy += GRAV * dt; vx += wnd * dt; gx += vx * dt; gy += vy * dt;
+      if (gy > COUNTER_Y) break;
+      if (i % 4 === 0){ ctx.beginPath(); ctx.arc(gx, gy, 3, 0, 7); ctx.fill(); }
+    }
+  }
+  if (d.wall){ ctx.fillStyle = '#8a6642'; roundRect(d.wall.x, d.wall.y, d.wall.w, COUNTER_Y - d.wall.y, 4); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(d.wall.x + 3, d.wall.y + 6, 3, COUNTER_Y - d.wall.y - 12); }
+  if (d.ceiling){ ctx.fillStyle = '#8a6642'; roundRect(d.ceiling.x, d.ceiling.y, d.ceiling.w, 14, 4); ctx.fill(); }
+  const wnd = windNow(s);
+  if (wnd){
+    const dir = wnd > 0 ? '→' : '←', mag = Math.min(3, Math.ceil(Math.abs(wnd) / 80));
+    ctx.fillStyle = 'rgba(70,103,127,.85)'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('風 ' + dir.repeat(mag) + (d.gusty ? '（突風）' : ''), W - 200, 34);
+  }
+  if (d.leak){ ctx.fillStyle = 'rgba(224,72,62,.85)'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('⚠ 穴あきコップ（少しずつ漏れる）', 16, H - 14); }
+  drawShower(pouring && !s.done && s.tank > 0);
+  drawCup(cx, d.cupW, pct);
+  ctx.fillStyle = 'rgba(56,158,240,.75)';
+  for (const p of s.particles){ ctx.beginPath(); ctx.arc(p.x, p.y, 2.3, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(120,200,250,.8)'; ctx.lineWidth = 1.6;
+  for (const sp of s.splashes){ ctx.beginPath(); ctx.moveTo(sp.x, sp.y); ctx.lineTo(sp.x - sp.vx * .03, sp.y - sp.vy * .03); ctx.stroke(); }
+}
+function frame(ts){
+  const dt = Math.min(.033, lastTs ? (ts - lastTs) / 1000 : 0);
+  lastTs = ts;
+  update(dt); draw();
+  requestAnimationFrame(frame);
+}
+
+/* ================= 画面遷移と入力 ================= */
+function startStage(i){
+  cur = i; st = stageState(i); pouring = false; els.pour.classList.remove('on');
+  els.stage.textContent = 'ステージ ' + (i + 1) + '：' + STAGES[i].name;
+  $('titleOv').classList.add('hidden'); $('resOv').classList.add('hidden');
+  els.fill.textContent = '0%'; els.tank.style.width = '100%';
+}
+function buildGrid(){
+  const grid = $('grid'); grid.innerHTML = '';
+  STAGES.forEach((d, i) => {
+    const b = document.createElement('button');
+    b.className = 'stagebtn'; b.disabled = i >= save.unlocked; b.title = d.name;
+    b.innerHTML = (i + 1) + '<span class="stars">' + (save.stars[i] ? '★'.repeat(save.stars[i]) + '☆'.repeat(3 - save.stars[i]) : '&nbsp;') + '</span>';
+    b.addEventListener('click', () => { audioInit(); startStage(i); });
+    grid.appendChild(b);
+  });
+}
+function overlayOpen(){ return !$('titleOv').classList.contains('hidden') || !$('resOv').classList.contains('hidden'); }
+function setPressure(v){
+  pressure = Math.max(0, Math.min(100, Math.round(v)));
+  els.press.value = pressure; els.pressVal.textContent = pressure;
+}
+els.press.addEventListener('input', e => { pressure = +e.target.value; els.pressVal.textContent = pressure; });
+function pourOn(e){
+  if (e) e.preventDefault();
+  if (overlayOpen()) return;
+  audioInit(); if (AC && AC.state === 'suspended') AC.resume();
+  pouring = true; els.pour.classList.add('on');
+}
+function pourOff(){ pouring = false; els.pour.classList.remove('on'); }
+els.pour.addEventListener('pointerdown', pourOn);
+window.addEventListener('pointerup', pourOff);
+window.addEventListener('pointercancel', pourOff);
+$('judgeBtn').addEventListener('click', () => { audioInit(); finish(); });
+$('retryBtn').addEventListener('click', () => startStage(cur));
+$('selectBtn').addEventListener('click', () => { buildGrid(); $('titleOv').classList.remove('hidden'); });
+$('soundBtn').addEventListener('click', function(){
+  muted = !muted;
+  try { localStorage.setItem('showater_mute', muted ? '1' : '0'); } catch(e){}
+  this.textContent = muted ? '🔇' : '🔊';
+  if (muted) setPourSound(false);
+});
+$('nextBtn').addEventListener('click', () => startStage(Math.min(29, cur + 1)));
+$('resRetryBtn').addEventListener('click', () => startStage(cur));
+$('resSelectBtn').addEventListener('click', () => { $('resOv').classList.add('hidden'); buildGrid(); $('titleOv').classList.remove('hidden'); });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space'){ e.preventDefault(); if (!e.repeat) pourOn(); }
+  else if (e.code === 'ArrowRight' || e.code === 'ArrowUp'){ e.preventDefault(); setPressure(pressure + (e.shiftKey ? 5 : 1)); }
+  else if (e.code === 'ArrowLeft' || e.code === 'ArrowDown'){ e.preventDefault(); setPressure(pressure - (e.shiftKey ? 5 : 1)); }
+  else if (e.code === 'Enter'){ if (!overlayOpen()) finish(); }
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') pourOff(); });
+
+if (muted) $('soundBtn').textContent = '🔇';
+buildGrid();
+st = stageState(0);
+els.stage.textContent = 'ステージ 1：' + STAGES[0].name;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
