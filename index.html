@@ -57,9 +57,7 @@
     padding:12px 18px; font-size:17px; user-select:none; -webkit-user-select:none; touch-action:none;
   }
   .btn:active{transform:scale(.97)}
-  #pourBtn{flex:0 1 210px; background:linear-gradient(180deg,#37b6f0,#0b6cb4); font-size:19px; box-shadow:0 4px 0 #084e82}
-  #pourBtn.on{filter:brightness(1.2); box-shadow:0 1px 0 #084e82; transform:translateY(3px)}
-  #judgeBtn{flex:0 1 130px; background:linear-gradient(180deg,#ffb03a,#f08c0a); box-shadow:0 4px 0 #b96a00; color:#fff}
+  #judgeBtn{flex:0 1 160px; background:linear-gradient(180deg,#ffb03a,#f08c0a); box-shadow:0 4px 0 #b96a00; color:#fff}
   .hint{font-size:12px; color:#6b8aa0; text-align:center}
   /* overlays */
   .overlay{
@@ -94,7 +92,6 @@
   @media (max-width:560px){
     .grid{grid-template-columns:repeat(5,1fr)}
     .card h1{font-size:32px}
-    #pourBtn{flex:1 1 150px}
   }
 </style>
 </head>
@@ -117,10 +114,9 @@
       <label>水圧 <b><span id="pressVal">40</span>%</b></label>
       <input type="range" id="pressRange" min="0" max="100" value="40">
     </div>
-    <button class="btn" id="pourBtn">⏸ 止める</button>
     <button class="btn" id="judgeBtn">✔ 判定する</button>
   </div>
-  <div class="hint">スライダーで水圧を決めると自動で水が出る。コップの80%ライン以上ためればクリア。キーボード: ←→で水圧 / スペースで止める・流す / Enterで判定</div>
+  <div class="hint">スライダーで水圧を決めると自動で水が出て、止められない。コップの80%ライン以上ためればクリア。キーボード: ←→で水圧 / Enterで判定</div>
 </div>
 
 <div class="overlay" id="titleOv">
@@ -129,7 +125,7 @@
     <p class="sub">シャワーの水圧を調整して、コップに水を満たそう</p>
     <div class="howto">
       🚿 お風呂のシャワーでコップに水をためるゲーム。水圧スライダーで勢いを変えると、水の届く位置が変わるよ。<br>
-      💧 スライダーで水圧を決めると、その瞬間から自動で水が出る。決める前は水は出ないよ。流れている間も水圧は変えられるし、「止める」で一時停止もできる。水タンクには限りがあるから無駄撃ち注意。<br>
+      💧 スライダーで水圧を決めると、その瞬間から自動で水が出る。決める前は水は出ないよ。流れている間も水圧は変えられるけど、<b>一度流れ始めたら止められない</b>。水タンクが空になるまで流れ続けるから、水圧決めは慎重に。<br>
       🥛 コップの<b>80%ライン以上</b>ためればステージクリア。窓からの風や風呂椅子、動くコップなど全30ステージ。
     </div>
     <div class="grid" id="grid"></div>
@@ -186,20 +182,20 @@ const STAGES = [
   { name:"狭いコップ",       cupX:480, cupW:62,  tankMul:1.4 },
   { name:"ちびコップ遠く",   cupX:590, cupW:56,  tankMul:1.35 },
   { name:"ゆらゆらコップ",   cupX:470, cupW:96,  moveAmp:55,  moveSpd:0.9,  tankMul:1.55 },
-  { name:"大きくゆらゆら",   cupX:500, cupW:92,  moveAmp:105, moveSpd:1.15, tankMul:1.55 },
+  { name:"大きくゆらゆら",   cupX:500, cupW:92,  moveAmp:105, moveSpd:1.15, tankMul:1.75 },
   { name:"ゆらゆらと風",     cupX:520, cupW:90,  wind:110, moveAmp:75, moveSpd:1.0, tankMul:1.5 },
   { name:"穴あきコップ",     cupX:470, cupW:100, leak:24, tankMul:1.7 },
   { name:"漏れまくり",       cupX:550, cupW:96,  leak:46, tankMul:1.85 },
   { name:"椅子と向かい風",   cupX:580, cupW:90,  wind:-120, wall:{x:340,y:220,w:18}, tankMul:1.45 },
   { name:"タオルと追い風",   cupX:615, cupW:88,  wind:150, ceiling:{x:500,y:272,w:220}, tankMul:1.5 },
-  { name:"高速ゆらゆら",     cupX:500, cupW:88,  moveAmp:125, moveSpd:1.6, tankMul:1.5 },
+  { name:"高速ゆらゆら",     cupX:500, cupW:88,  moveAmp:100, moveSpd:1.4, tankMul:2.2 },
   { name:"極狭コップ",       cupX:540, cupW:46,  tankMul:1.3 },
   { name:"強風と穴あき",     cupX:580, cupW:90,  wind:190, leak:34, tankMul:1.65 },
   { name:"全部のせ",         cupX:560, cupW:86,  wind:-140, wall:{x:330,y:230,w:18}, moveAmp:65, moveSpd:1.05, tankMul:1.55 },
   { name:"水は大切に",       cupX:500, cupW:92,  tankMul:1.12 },
   { name:"精密射撃",         cupX:615, cupW:56,  tankMul:1.45 },
   { name:"突風",             cupX:560, cupW:64,  wind:200, gusty:true, tankMul:1.4 },
-  { name:"ラスト一杯",       cupX:570, cupW:78,  wind:-170, leak:22, moveAmp:80, moveSpd:1.25, ceiling:{x:480,y:282,w:200}, tankMul:1.7 },
+  { name:"ラスト一杯",       cupX:570, cupW:78,  wind:-170, leak:16, moveAmp:65, moveSpd:1.1, ceiling:{x:480,y:282,w:200}, tankMul:2.6 },
 ];
 </script>
 <script>
@@ -207,7 +203,7 @@ const STAGES = [
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
-const els = { fill:$('fillPct'), tank:$('tankFill'), stage:$('stageLabel'), press:$('pressRange'), pressVal:$('pressVal'), pour:$('pourBtn') };
+const els = { fill:$('fillPct'), tank:$('tankFill'), stage:$('stageLabel'), press:$('pressRange'), pressVal:$('pressVal') };
 
 let save = { stars:new Array(30).fill(0), unlocked:1 };
 try { const s = JSON.parse(localStorage.getItem('showater_v1')); if (s && Array.isArray(s.stars)) save = s; } catch(e){}
@@ -503,24 +499,13 @@ function setPressure(v){
 }
 els.press.addEventListener('input', e => { pressure = +e.target.value; els.pressVal.textContent = pressure; });
 els.press.addEventListener('change', decide);
-function setFlow(on){
-  pouring = on;
-  els.pour.textContent = on ? '⏸ 止める' : '▶ 流す';
-  els.pour.classList.toggle('on', on);
-}
-function toggleFlow(){
-  if (overlayOpen()) return;
-  decided = true;
-  audioInit(); if (AC && AC.state === 'suspended') AC.resume();
-  setFlow(!pouring);
-}
+function setFlow(on){ pouring = on; }
 function decide(){
   if (decided) return;
   decided = true;
   audioInit(); if (AC && AC.state === 'suspended') AC.resume();
   setFlow(true);
 }
-els.pour.addEventListener('click', toggleFlow);
 $('judgeBtn').addEventListener('click', () => { audioInit(); finish(); });
 $('retryBtn').addEventListener('click', () => startStage(cur));
 $('selectBtn').addEventListener('click', () => { buildGrid(); $('titleOv').classList.remove('hidden'); });
@@ -534,8 +519,7 @@ $('nextBtn').addEventListener('click', () => startStage(Math.min(29, cur + 1)));
 $('resRetryBtn').addEventListener('click', () => startStage(cur));
 $('resSelectBtn').addEventListener('click', () => { $('resOv').classList.add('hidden'); buildGrid(); $('titleOv').classList.remove('hidden'); });
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space'){ e.preventDefault(); if (!e.repeat) toggleFlow(); }
-  else if (e.code === 'ArrowRight' || e.code === 'ArrowUp'){ e.preventDefault(); setPressure(pressure + (e.shiftKey ? 5 : 1)); decide(); }
+  if (e.code === 'ArrowRight' || e.code === 'ArrowUp'){ e.preventDefault(); setPressure(pressure + (e.shiftKey ? 5 : 1)); decide(); }
   else if (e.code === 'ArrowLeft' || e.code === 'ArrowDown'){ e.preventDefault(); setPressure(pressure - (e.shiftKey ? 5 : 1)); decide(); }
   else if (e.code === 'Enter'){ if (!overlayOpen()) finish(); }
 });
